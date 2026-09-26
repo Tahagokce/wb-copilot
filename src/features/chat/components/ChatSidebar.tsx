@@ -1,14 +1,14 @@
 import { useDeferredValue, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Check, LoaderCircle, MessageSquare, MoreHorizontal, PanelLeftClose, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { ArrowUpRight, Check, LoaderCircle, MessageSquare, MoreHorizontal, PanelLeftClose, Plus, Search, Trash2, X } from 'lucide-react';
 import { useChatIndex } from '../store/hooks';
 import { chatStore } from '../store/chat-store';
 import { groupConversations } from '../utils/dates';
 import { Brand } from './Brand';
 import { ConversationDialog, type ConversationAction } from './ConversationDialog';
 
-export function ChatSidebar({ activeId, collapsed, mobileOpen, closeMobile, collapse }: {
-  activeId?: string; collapsed: boolean; mobileOpen: boolean; closeMobile: () => void; collapse: () => void;
+export function ChatSidebar({ activeId, collapsed, mobileOpen, closeMobile, collapse, canDelete, hasHistory }: {
+  activeId?: string; collapsed: boolean; mobileOpen: boolean; closeMobile: () => void; collapse: () => void; canDelete: boolean; hasHistory: boolean;
 }) {
   const index = useChatIndex();
   const navigate = useNavigate();
@@ -42,6 +42,7 @@ export function ChatSidebar({ activeId, collapsed, mobileOpen, closeMobile, coll
     <Link className="new-chat" to="/chat" onClick={() => { closeMobile(); setMenu(null); }}><Plus size={19} /><span>New chat</span><span className="new-chat-hint"><ArrowUpRight size={15} /></span></Link>
     <label className="chat-search"><Search size={16} /><input ref={mobile ? undefined : search} aria-label="Search chats" placeholder="Search chats" value={query} onChange={event => setQuery(event.target.value)} /><kbd>⌘ K</kbd></label>
     <nav className="conversation-navigation" aria-label="Conversation history">
+      {!hasHistory && index.status === 'idle' && !index.items.length && <div className="sidebar-empty"><MessageSquare size={23} /><p>No chats loaded</p><span>Chat history will be available when the backend connection is configured.</span></div>}
       {index.status === 'loading' && !index.items.length && <div className="history-skeleton" aria-label="Loading chat history"><span /><span /><span /></div>}
       {index.status === 'error' && <div className="sidebar-notice" role="alert"><p>{index.error}</p><button className="text-button" onClick={() => void chatStore.loadIndex()}>Try again</button></div>}
       {index.status === 'loaded' && !filtered.length && <div className="sidebar-empty"><MessageSquare size={23} /><p>{query ? 'No matching chats' : 'A fresh start'}</p><span>{query ? 'Try a different title.' : 'Your conversations will appear here.'}</span></div>}
@@ -49,9 +50,9 @@ export function ChatSidebar({ activeId, collapsed, mobileOpen, closeMobile, coll
         const unread = item.id !== activeId && !!item.lastAssistantAt && item.lastAssistantAt > item.readAt;
         return <li key={item.id} className={`conversation-item ${activeId === item.id ? 'active' : ''}`}>
           <Link to={`/chat/${item.id}`} onClick={() => { closeMobile(); setMenu(null); }} aria-current={activeId === item.id ? 'page' : undefined} title={item.title}><span>{item.title}</span>{item.generation.status === 'running' ? <LoaderCircle size={14} className="spin" aria-label="Generating response" /> : unread ? <span className="unread-dot" role="img" aria-label="New response" /> : null}</Link>
-          <div className="conversation-menu"><button className="icon-button" aria-label={`Actions for ${item.title}`} aria-expanded={menu === item.id} aria-haspopup="true" onClick={() => setMenu(menu === item.id ? null : item.id)}><MoreHorizontal size={17} /></button>
-            {menu === item.id && <div className="overflow-menu"><button onClick={() => { setMenu(null); setAction({ type: 'rename', id: item.id, title: item.title }); }}><Pencil size={15} />Rename</button><button className="delete-action" onClick={() => { setMenu(null); setAction({ type: 'delete', id: item.id, title: item.title }); }}><Trash2 size={15} />Delete</button></div>}
-          </div>
+          {canDelete && <div className="conversation-menu"><button className="icon-button" aria-label={`Actions for ${item.title}`} aria-expanded={menu === item.id} aria-haspopup="true" onClick={() => setMenu(menu === item.id ? null : item.id)}><MoreHorizontal size={17} /></button>
+            {menu === item.id && <div className="overflow-menu">{canDelete && <button className="delete-action" onClick={() => { setMenu(null); setAction({ type: 'delete', id: item.id, title: item.title }); }}><Trash2 size={15} />Delete</button>}</div>}
+          </div>}
         </li>;
       })}</ul></section>)}
     </nav>

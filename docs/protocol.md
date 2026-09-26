@@ -1,41 +1,18 @@
-# Local application contract
+# Backend protocol
 
-These are **new internal endpoints implemented in this repository**, not claims about the service at port 8080. Runtime DTO validation is in `shared/protocol.ts` and `services/api.ts`.
+HTTP base: `http://localhost:8080/api/v1`.
 
-## HTTP
-
-All requests are same-origin and use an HttpOnly, SameSite=Strict `wb_session` cookie. `GET /api/session` creates the browser workspace session; other endpoints require it. IDs are UUIDs. The server rejects ownership violations and cross-origin mutations. `APP_ORIGIN` is the explicit frontend-origin allowlist entry for development/reverse-proxy setups.
-
-| Method | Endpoint | Behavior |
+| Method | Path | Body / response |
 | --- | --- | --- |
-| GET | `/api/session` | Session cookie, provider availability, current event cursor |
-| GET | `/api/conversations` | Summaries, sorted by latest activity; title filtering is client-side |
-| GET | `/api/conversations/:id` | Full revisioned document |
-| POST | `/api/conversations/:id/messages` | `{ requestId, content }`; lazy creation, persisted acknowledgement, asynchronous job |
-| PATCH | `/api/conversations/:id` | `{ title }`, maximum 100 characters |
-| POST | `/api/conversations/:id/read` | Persist completion read receipt |
-| DELETE | `/api/conversations/:id` | Abort job, erase active history and retained snapshots, tombstone ID |
+| POST | /conversations | No request body; Conversation response |
+| GET | /conversations | Conversation[] |
+| GET | /conversations/{id}/messages | ConversationMessage[] |
+| DELETE | /conversations/{id} | No request body; any 2xx accepted |
 
-Message content is trimmed, required, and at most 16,000 characters. Existing request IDs never add duplicate user messages. A retry of the current failed request can restart generation; retries of an already completed/running request return the current snapshot. Reusing a request ID for different content is rejected.
+One WebSocket connects to `ws://localhost:8080/api/v1/copilot/chat`.
 
-## WebSocket
+Outbound: `{ "type": "USER_MESSAGE", "conversationId": "server-generated-id", "content": "user text" }`.
 
-Connect to same-origin `/realtime` using the session cookie. A valid browser Origin is required. Immediately send:
+Inbound ChatEvent types: USER_MESSAGE, ASSISTANT_STARTED, ASSISTANT_STATUS, ASSISTANT_DELTA, ASSISTANT_COMPLETED, TOOL_STARTED, TOOL_COMPLETED, ERROR. Every routed frame uses its own conversationId. Null or omitted content is supported. Deltas append, including repeated identical chunks. Completion finalizes accumulated content. Errors clear temporary activity without closing the socket.
 
-```json
-{ "type": "resume", "after": 0 }
-```
-
-The server replays missed events and sends `ready`. Event sequences are globally increasing but scoped by session on replay; gaps between a session's event IDs are normal.
-
-```ts
-type ServerEvent =
-  | { type: 'conversation.updated'; seq: number; conversationId: string; conversation: ConversationDocument }
-  | { type: 'conversation.deleted'; seq: number; conversationId: string }
-  | { type: 'sync'; seq: number }
-  | { type: 'ready'; seq: number };
-```
-
-`sync` means fetch authoritative history and loaded conversations because the cursor is outside the replay window. Every mutation increments its conversation revision. The client rejects older snapshots and mismatched envelope/document IDs. Route identity is never used for event attribution.
-
-Messages have `sending | sent | streaming | completed | failed` states. Optimistic sending/failed-send states are client-side until an acknowledgement exists. Generation has `idle | running | completed | failed` and holds tool execution records separately from chat messages.
+DTO definitions are in shared/backend-types.ts. Internal UI types in shared/protocol.ts are not transmitted to the server. No invented handshake, subscribe, resume, rename, read-receipt, HTTP-send, or cancellation endpoints exist.

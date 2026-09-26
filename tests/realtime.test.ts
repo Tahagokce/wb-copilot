@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RealtimeClient } from '../src/features/chat/services/realtime';
-import { document } from './fixtures';
 class Socket {
   readyState = 0;
   onopen: WebSocket['onopen'] = null; onclose: WebSocket['onclose'] = null;
@@ -17,10 +16,20 @@ function setup() {
 }
 describe('application realtime transport', () => {
   beforeEach(() => vi.useFakeTimers()); afterEach(() => vi.useRealTimers());
-  it('start is idempotent and ready is required before connected', () => {
+  it('opens exactly one browser socket and does not send an invented handshake', () => {
     const { client, sockets, onState } = setup(); client.start(); client.start(); expect(sockets).toHaveLength(1);
-    sockets[0].open(); expect(sockets[0].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resume', after: 0 }));
-    expect(onState).not.toHaveBeenCalledWith('connected'); sockets[0].message({ type: 'ready', seq: 0 }); expect(onState).toHaveBeenLastCalledWith('connected'); client.stop();
+    sockets[0].open(); expect(sockets[0].send).not.toHaveBeenCalled();
+    expect(onState).toHaveBeenLastCalledWith('connected'); client.stop();
+  });
+  it('sends the exact USER_MESSAGE frame over the same socket for A and B', () => {
+    const {client,sockets}=setup();client.start();
+    expect(()=>client.send('a','Hello')).toThrow();sockets[0].open();
+    client.send('a','Hello');client.send('b','World');
+    expect(sockets).toHaveLength(1);
+    expect(sockets[0].send.mock.calls.map(([data])=>JSON.parse(data))).toEqual([
+      {type:'USER_MESSAGE',conversationId:'a',content:'Hello'},
+      {type:'USER_MESSAGE',conversationId:'b',content:'World'},
+    ]);client.stop();expect(()=>client.send('a','Late')).toThrow();
   });
   it('reconnects at 1s, 2s and keeps backoff bounded', () => {
     const { client, sockets } = setup(); client.start(); sockets[0].disconnect();
@@ -36,19 +45,22 @@ describe('application realtime transport', () => {
     const { client, sockets, onState } = setup(); client.start(); client.setOnline(false); vi.advanceTimersByTime(60000);
     expect(sockets).toHaveLength(1); expect(onState).toHaveBeenLastCalledWith('offline'); client.setOnline(true); client.setOnline(true); expect(sockets).toHaveLength(2); client.stop();
   });
-  it('ignores duplicate events and resumes at the last event cursor', () => {
-    const { client, sockets, onEvent } = setup(); const a = document(); client.start(); sockets[0].open();
-    const event = { type: 'conversation.updated', seq: 4, conversationId: a.id, conversation: a }; sockets[0].message(event); sockets[0].message(event);
-    expect(onEvent).toHaveBeenCalledTimes(1); sockets[0].disconnect(); vi.advanceTimersByTime(1000); sockets[1].open();
-    expect(sockets[1].send).toHaveBeenCalledWith(JSON.stringify({ type: 'resume', after: 4 })); client.stop();
+  it('delivers real BE deltas in order without content-based deduplication', async () => {
+    const { client, sockets, onEvent } = setup(); client.start(); sockets[0].open();
+    const event = { type: 'ASSISTANT_DELTA', conversationId: 'a', content: 'ha' };
+    sockets[0].message(event); sockets[0].message(event);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onEvent).toHaveBeenCalledTimes(2);
+    sockets[0].disconnect(); vi.advanceTimersByTime(1000); sockets[1].open();
+    expect(sockets[1].send).not.toHaveBeenCalled(); client.stop();
   });
-  it('ignores stale socket callbacks after a replacement', () => {
-    const { client, sockets, onEvent } = setup(); client.start(); const stale = sockets[0].onmessage; client.retry(); const a = document();
-    stale?.call(sockets[0] as unknown as WebSocket, { data: JSON.stringify({ type: 'conversation.updated', seq: 3, conversationId: a.id, conversation: a }) } as MessageEvent);
-    expect(onEvent).not.toHaveBeenCalled(); client.stop();
+  it('ignores stale socket callbacks after a replacement', async () => {
+    const { client, sockets, onEvent } = setup(); client.start(); const stale = sockets[0].onmessage; client.retry();
+    stale?.call(sockets[0] as unknown as WebSocket, { data: JSON.stringify({ type: 'ASSISTANT_COMPLETED', conversationId: 'a', content: 'late' }) } as MessageEvent);
+    await vi.advanceTimersByTimeAsync(0); expect(onEvent).not.toHaveBeenCalled(); client.stop();
   });
-  it('invalid data does not advance the cursor or enter the store', () => {
-    const { client, sockets, onEvent } = setup(); client.start(); sockets[0].message({ type: 'conversation.updated', seq: 9 }); expect(onEvent).not.toHaveBeenCalled(); client.stop();
+  it('invalid data never enters the store', async () => {
+    const { client, sockets, onEvent } = setup(); client.start(); sockets[0].message({ type: 'ASSISTANT_DELTA', content: 9 }); await vi.advanceTimersByTimeAsync(0); expect(onEvent).not.toHaveBeenCalled(); client.stop();
   });
   it('replaces a connection that never completes its handshake', () => {
     const { client, sockets } = setup(); client.start(); vi.advanceTimersByTime(13000); expect(sockets).toHaveLength(2); expect(sockets[0].close).toHaveBeenCalled(); client.stop();

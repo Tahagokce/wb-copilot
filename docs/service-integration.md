@@ -1,47 +1,9 @@
-# Real service integration
+# Integration limits
 
-Known address: `http://localhost:8080`. The service is not currently running. No endpoint, auth header, message DTO, tool event or final-response shape has been assumed.
+The provided contract has no event ID, sequence, request ID, replay cursor, running-job query, or idempotency key. Therefore the client cannot guarantee replay of missed deltas, exactly-once delivery after an uncertain disconnect, or restoration of in-progress generation after refresh. Reconnect reloads persisted history and does not automatically resend requests. Local request/message IDs exist only for UI bookkeeping.
 
-The UI badge and failure message intentionally expose the missing integration. There is no demo AI fallback. The local API persists a user message and records an honest failed generation while `UnconfiguredProvider` is selected; retry reuses the saved message and request ID.
+HTTP history and concurrent live events are reconciled conservatively. Identical repeated messages without stable event IDs remain inherently ambiguous. Server-provided message/request IDs and a replay cursor would eliminate that ambiguity; a job-state endpoint would permit reliable recovery of running work.
 
-## Information required
+Navigation keeps the socket open, allowing background generation. Whether generation survives a browser refresh or socket loss depends on the backend. No client-side promise of backend job continuation or cancellation on deletion is made.
 
-1. Authentication method and user/session identity; secrets are server-only environment variables.
-2. Conversation creation, generated IDs, list/history pagination, rename/delete, title generation.
-3. Send protocol and acknowledgement/idempotency semantics.
-4. WebSocket URL, handshake, session versus conversation scope, event types and correlation fields.
-5. Actual tool status/result events, streaming events and final/error events.
-6. Concurrent request limits; reconnect replay, result retrieval and running-job restoration.
-
-## Adapter contract
-
-Implement `CopilotProvider` in `server/provider.ts` and explicitly select it in `server/index.ts`:
-
-```ts
-interface CopilotProvider {
-  available: boolean;
-  name: string;
-  generate(input: {
-    conversationId: string;
-    requestId: string;
-    messages: Message[];
-    signal: AbortSignal;
-    onTool: (tool: ToolExecution) => void;
-    onText: (accumulatedText: string) => void;
-  }): Promise<string>;
-}
-```
-
-`onText` receives accumulated content, not a token delta. Final return content is authoritative. Forward only genuine tool labels and statuses. Correlate using both conversation and request IDs. Persist any mapping to upstream conversation/request IDs if the upstream generates different IDs. Do not assume that a local UUID is valid upstream.
-
-The application server—not the browser connection—owns the call. Honor cancellation for explicit deletion/timeouts/shutdown, never for tab/route switching. Translate upstream errors into safe categories without forwarding secrets, raw stack traces or internal payloads.
-
-If the upstream already provides the complete conversation and realtime contract, replacing `src/features/chat/services/api.ts` and the realtime protocol adapter may be the smaller solution. Retain the store's revision/idempotency invariants and adapt the focused tests to actual DTOs. The local backend is replaceable support for this new frontend, not a required rewrite of the existing service.
-
-## Limits to verify before connecting
-
-- No correlation field: require conversation/request identity in events, or maintain one managed socket per upstream conversation.
-- Cancellation on socket close: require durable server-side execution or keep the provider socket alive independent of navigation.
-- No replay/history/status lookup: background work can continue while connected, but browser-refresh recovery cannot be promised.
-- No idempotency: do not blindly resend requests with an unknown outcome; reconcile history/request status first.
-- One job per session: explicitly queue or show the actual limitation rather than pretending parallel generation works.
+The contract exposes no rename, content-search, server unread receipts, or structured domain cards. Search filters real conversation titles, read markers remain local, and no fake domain data is rendered.
