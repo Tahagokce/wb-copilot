@@ -1,3 +1,4 @@
+import type { ChatAction, ChatUiBlock } from './backend-types';
 /** Frontend model, not a protocol imposed on the existing backend. */
 export interface Message {
   id: string;
@@ -5,6 +6,8 @@ export interface Message {
   requestId: string;
   role: 'user' | 'assistant';
   content: string;
+  actions?: ChatAction[];
+  blocks?: ChatUiBlock[];
   createdAt: string;
   status: 'sending' | 'sent' | 'streaming' | 'completed' | 'failed';
   /** Frontend-only marker for a BE USER_MESSAGE echo without a message ID. */

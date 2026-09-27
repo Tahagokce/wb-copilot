@@ -145,3 +145,24 @@ button, a { touch-action: manipulation; }
 @media (max-width: 760px) { .desktop-sidebar, .desktop-expand { display: none; }.mobile-menu-button { display: inline-flex; }.mobile-drawer[open] { display: block; }.mobile-drawer { border: 0; padding: 0; margin: 0; height: 100dvh; max-height: 100dvh; width: 290px; max-width: 85vw; background: transparent; }.mobile-drawer .sidebar { width: 100%; padding-top: 22px; }.chat-header { min-height: 66px; padding: 0 16px 0 12px; gap: 8px; }.header-start { gap: 10px; }.header-title { gap: 0; }.header-separator, .current-title { display: none; }.header-new-chat { display: inline-flex; }.header-actions { gap: 5px; }.service-status { font-size: .75rem; }.welcome { width: calc(100% - 40px); padding: 30px 0 20px; }.welcome-identity > span:last-child { font-size: .75rem; }.welcome h1 { font-size: 2rem; }.welcome > p { font-size: .875rem; }.welcome-identity { margin-bottom: 25px; }.suggestions { gap: 9px; margin-top: 27px; }.suggestions button { padding: 15px 12px; }.suggestions button > svg:first-child { position: static; margin-bottom: 11px; }.suggestions strong { font-size: .875rem; }.suggestions button > span { font-size: .75rem; }.composer-area { width: calc(100% - 24px); padding: 12px 0 max(12px, env(safe-area-inset-bottom)); }.composer { border-radius: 15px; padding: 14px 12px 10px; }.composer textarea { font-size: 1rem; }.composer-caption { font-size: .75rem; }.composer-footnote { font-size: .75rem; padding-top: 9px; }.welcome-footnote { display: none; }.message-column { width: calc(100% - 36px); padding-top: 18px; }.user-bubble { max-width: 92%; }.connection-notice { padding: 9px 15px; font-size: .75rem; }.icon-button { min-width: 36px; min-height: 36px; }.conversation-item > a { padding: 14px 9px; }.send-button { height: 40px; width: 40px; } }
 @media (max-height: 740px) and (min-width: 761px) { .welcome { padding: 16px 0; }.welcome-identity { margin-bottom: 18px; }.welcome h1 { font-size: 2rem; }.suggestions { margin-top: 25px; }.suggestions button { padding-top: 13px; padding-bottom: 13px; }.welcome-footnote { padding: 4px 0 12px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+.chat-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.chat-action-button { display: inline-flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid #d8dde3; border-radius: 9px; background: #fff; color: #283545; font: inherit; font-size: 13px; cursor: pointer; min-height: 40px; text-align: left; overflow-wrap: anywhere; }
+.chat-action-button:hover { background: #f3f5f7; }
+.chat-action-button:focus-visible { outline: 2px solid #a6192e; outline-offset: 3px; }
+
+.table-block { min-width: 0; max-width: 100%; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; font-size: .875rem; }
+.table-block-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px; }
+.table-block-toolbar h3 { margin: 0; font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+.table-block-toolbar input { max-width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 8px; color: inherit; background: transparent; }
+.table-block-scroll { max-width: 100%; max-height: 440px; overflow: auto; }
+.table-block table { border-collapse: collapse; width: 100%; text-align: left; }
+.table-block th, .table-block td { padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: top; max-width: 360px; overflow-wrap: anywhere; min-width: 100px; }
+.table-block th { background: var(--sidebar); font-weight: 550; }
+.table-block .chat-actions { margin: 0; flex-wrap: nowrap; }
+.table-block .chat-action-button { padding: 6px 8px; font-size: .8rem; background: transparent; border-color: var(--line); color: inherit; }
+.table-status { display: inline-block; padding: 3px 7px; border-radius: 5px; background: var(--sidebar); font-size: .8rem; }
+.table-block .table-empty { text-align: center; padding: 28px 12px; color: var(--muted); }
+.table-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); font-size: .8rem; }
+.table-pagination button { background: var(--sidebar); border-radius: 5px; padding: 8px; min-height: 36px; }
+.assistant-message { min-width: 0; max-width: 100%; }

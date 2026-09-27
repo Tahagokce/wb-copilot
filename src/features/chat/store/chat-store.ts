@@ -72,7 +72,7 @@ export class ChatStore {
     const optimistic = existing?.messageIds.map(id => existing.messagesById[id]).filter(m => m.role === 'user' && (m.status === 'sending' || m.status === 'failed') && !requestIds.has(m.requestId)) ?? [];
     const all = [...messages, ...optimistic].map(message => {
       const previous = existing?.messagesById[message.id];
-      return previous && previous.status === message.status && previous.content === message.content && previous.echoConfirmed === message.echoConfirmed ? previous : message;
+      return previous && previous.status === message.status && previous.content === message.content && previous.echoConfirmed === message.echoConfirmed && previous.actions === message.actions && previous.blocks === message.blocks ? previous : message;
     });
     const ids = all.map(m => m.id);
     const messageIds = existing && ids.length === existing.messageIds.length && ids.every((id, index) => id === existing.messageIds[index]) ? existing.messageIds : ids;
@@ -177,7 +177,7 @@ export class ChatStore {
       const match = live.find(message => remaining.has(message.id) && (message.id === saved.id || (message.role === saved.role && (message.content === saved.content || (message.role === 'assistant' && (message.status === 'streaming' || message.status === 'failed') && saved.content.startsWith(message.content))))));
       if (!match) return saved;
       remaining.delete(match.id);
-      return { ...saved, requestId: match.requestId, echoConfirmed: match.echoConfirmed, ...(changed && match.status === 'streaming' ? { content: match.content, status: match.status } : {}) };
+      return { ...saved, actions: changed ? match.actions ?? saved.actions : saved.actions ?? match.actions, blocks: changed ? match.blocks ?? saved.blocks : saved.blocks ?? match.blocks, requestId: match.requestId, echoConfirmed: match.echoConfirmed, ...(changed && match.status === 'streaming' ? { content: match.content, status: match.status } : {}) };
     });
     for (const message of live) {
       if (remaining.has(message.id) && (changed || message.status === 'sending' || message.status === 'failed' || message.status === 'streaming')) messages.push(message);

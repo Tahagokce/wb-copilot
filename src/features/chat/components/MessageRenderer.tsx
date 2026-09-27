@@ -2,6 +2,8 @@ import { memo, useRef, useState, type ReactNode } from 'react';
 import { SafeMarkdown } from './SafeMarkdown';
 import { Check, Copy, RotateCcw } from 'lucide-react';
 import type { Message } from '../../../../shared/protocol';
+import { ChatUiBlockRenderer } from './ChatUiBlockRenderer';
+import { ChatActions } from './ChatActions';
 import { Brand } from './Brand';
 
 /** Register a renderer here only when the backend supplies a typed domain payload. */
@@ -23,5 +25,5 @@ function MessageContent({ message }: { message: Message }) {
 }
 export const MessageRenderer = memo(function MessageRenderer({ message, retry, retryDisabled }: { message: Message; retry: (message: Message) => void; retryDisabled: boolean }) {
   if (message.role === 'user') return <article className="user-message" aria-label="Your message"><div className="user-bubble">{message.content}</div>{message.status === 'sending' && <span className="message-state">Sending…</span>}{message.status === 'failed' && <div className="message-state failed" role="alert">Could not send message.<button className="text-button" disabled={retryDisabled} onClick={() => retry(message)}><RotateCcw size={13} />Retry</button></div>}</article>;
-  return <article className="assistant-message" aria-label="WB Copilot response"><div className="assistant-heading"><Brand small /><strong>WB Copilot</strong>{message.status === 'streaming' && <span className="message-state">Responding</span>}</div><div className="markdown"><MessageContent message={message} /></div>{message.status === 'completed' && <div className="message-actions"><CopyButton content={() => message.content} /></div>}{message.status === 'failed' && <span className="message-state failed">This response was interrupted.</span>}</article>;
+  return <article className="assistant-message" aria-label="WB Copilot response"><div className="assistant-heading"><Brand small /><strong>WB Copilot</strong>{message.status === 'streaming' && <span className="message-state">Responding</span>}</div><div className="markdown"><MessageContent message={message} /></div>{message.blocks?.map(block => <ChatUiBlockRenderer key={block.id} block={block} />)}<ChatActions actions={message.actions} />{message.status === 'completed' && <div className="message-actions"><CopyButton content={() => message.content} /></div>}{message.status === 'failed' && <span className="message-state failed">This response was interrupted.</span>}</article>;
 });

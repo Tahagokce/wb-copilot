@@ -1,3 +1,4 @@
+import { parseActions, parseUiBlock } from '../services/validation';
 import type { ChatEvent } from '../../../../shared/backend-types';
 import type { ConversationDocument, Message } from '../../../../shared/protocol';
 
@@ -20,6 +21,7 @@ export function reduceChatEvent(current: ConversationDocument, event: ChatEvent)
     const message: Message = {
       id: existing?.id ?? crypto.randomUUID(), conversationId: document.id,
       requestId: document.generation.requestId ?? crypto.randomUUID(), role: 'assistant',
+      actions: existing?.actions, blocks: existing?.blocks,
       content, createdAt: existing?.createdAt ?? now, status,
     };
     if (existing) document.messages = document.messages.map(item => item.id === existing.id ? message : item);
@@ -43,6 +45,30 @@ export function reduceChatEvent(current: ConversationDocument, event: ChatEvent)
       if (!assistant()) writeAssistant('', 'streaming');
       if (event.content !== null) document.generation.statusText = event.content;
       break;
+    case 'UI_BLOCK': {
+      if (document.generation.status !== 'running') return current;
+      const block = parseUiBlock(event.block);
+      if (!block) return current;
+      if (!assistant()) writeAssistant('', 'streaming');
+      const message = assistant()!;
+      const blocks = new Map((message.blocks ?? []).map(item => [item.id, item]));
+      blocks.set(block.id, block);
+      document.messages = document.messages.map(item => item.id === message.id ? { ...item, blocks: [...blocks.values()] } : item);
+      break;
+    }
+    case 'ACTIONS': {
+      // Only the current in-flight response can own actions. Never reopen a
+      // completed/failed generation or infer ownership from the active route.
+      if (document.generation.status !== 'running') return current;
+      const incoming = parseActions(event.actions);
+      if (!incoming.length) return current;
+      if (!assistant()) writeAssistant('', 'streaming');
+      const message = assistant()!;
+      const actions = new Map((message.actions ?? []).map(action => [action.id, action]));
+      for (const action of incoming) actions.set(action.id, action);
+      document.messages = document.messages.map(item => item.id === message.id ? { ...item, actions: [...actions.values()] } : item);
+      break;
+    }
     case 'ASSISTANT_STATUS':
       begin(); document.generation.statusText = event.content ?? undefined;
       break;
